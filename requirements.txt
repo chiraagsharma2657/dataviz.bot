@@ -1,0 +1,5 @@
+streamlit>=1.63
+pandas>=2.2
+plotly>=6.0
+python-dotenv>=1.0
+langchain-google-genai>=4.0
