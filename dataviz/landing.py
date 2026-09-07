@@ -6,12 +6,34 @@ process shared by everyone using it, so a key on disk is a key handed to the
 next visitor. Session state is per-visitor and lives in memory only.
 """
 
+import os
+
 import streamlit as st
 
 from . import theme
 from .llm import verify_key
 
 KEY_URL = "https://aistudio.google.com/apikey"
+
+_TRUTHY = ("1", "true", "yes", "on")
+
+
+def resolve_api_key(env=None):
+    """Decide whether the landing page is needed, and with which key.
+
+    Returns the key to use, or None when the visitor must supply one.
+
+    REQUIRE_USER_KEY wins over a server key on purpose. Tying the landing page
+    to the *absence* of GOOGLE_API_KEY made it invisible to anyone who had a
+    working .env - you could not preview it without breaking your own setup,
+    and whether strangers spent your quota depended on a file you could not see
+    from the page.
+    """
+    env = os.environ if env is None else env
+
+    if env.get("REQUIRE_USER_KEY", "").strip().lower() in _TRUTHY:
+        return None
+    return env.get("GOOGLE_API_KEY") or None
 
 
 def _hero():

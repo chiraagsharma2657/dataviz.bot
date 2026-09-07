@@ -1,14 +1,12 @@
 ﻿"""DataViz: upload a CSV, ask a question in plain English, get a table and a chart."""
 
-import os
-
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
 from dataviz import theme
 from dataviz.charts import draw_chart
-from dataviz.landing import forget_key_button, require_api_key
+from dataviz.landing import forget_key_button, require_api_key, resolve_api_key
 from dataviz.data import normalize_dates, run_query, to_table_name
 from dataviz.llm import (
     ModelError, QuotaExceeded, ask, build_model, parse_chart_reply, strip_fences,
@@ -35,10 +33,9 @@ def step(label):
     st.markdown(f'<div class="dv-step">{label}</div>', unsafe_allow_html=True)
 
 
-# Landing page first: without a key there is nothing the app can do. When
-# GOOGLE_API_KEY is set (local development, or a single-owner deployment) the
-# gate is skipped and that key is used instead.
-api_key = os.getenv("GOOGLE_API_KEY") or require_api_key()
+# Landing page first: without a key there is nothing the app can do.
+# REQUIRE_USER_KEY forces it even when the server has a key of its own.
+api_key = resolve_api_key() or require_api_key()
 
 # ------------------------------------------------------------- masthead
 logo = theme.logo_data_uri()

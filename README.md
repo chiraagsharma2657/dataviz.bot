@@ -72,15 +72,19 @@ requirements.txt
 
 ## Hosting it for other people
 
-The app has two modes, chosen by whether `GOOGLE_API_KEY` is set on the server:
+The app has two modes:
 
-| `GOOGLE_API_KEY` | Behaviour | Who pays |
+| Setting | Behaviour | Who pays |
 |---|---|---|
-| set | The landing page is skipped and that key is used | You — every visitor spends your quota |
-| not set | Visitors land on a page asking for their own key | Each visitor, from their own free key |
+| `REQUIRE_USER_KEY=true` | Landing page always shown; each visitor supplies a key | Each visitor, from their own free key |
+| `GOOGLE_API_KEY` set, no `REQUIRE_USER_KEY` | Landing page skipped, server's key used | You — every visitor spends your quota |
+| Neither set | Landing page shown | Each visitor |
 
-For a public link, **leave it unset**. Each visitor's key lives in their own
-Streamlit session, in memory, for that browser session only.
+For a public link, set **`REQUIRE_USER_KEY=true`**. It is also how you preview
+the landing page locally without removing the key from your own `.env`.
+
+Each visitor's key lives in their own Streamlit session, in memory, for that
+browser session only.
 
 A key is deliberately never written to `.env` or any other file. A hosted app is
 one process shared by every visitor, so a key written to disk is a key handed to
