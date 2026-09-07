@@ -56,12 +56,27 @@ querybot/
                      box, heatmap, pie)
   llm.py             Model setup and parsing model replies
   prompts.py         The SQL prompt and the chart-planning prompt
+  sql.py             Repairs the model's MySQL so it runs on SQLite dates
+tests/               pytest suite, focused on date handling
 requirements.txt
 .env.example         Copy to .env and add your key
 ```
 
+## Tests
+
+```bash
+pip install pytest
+pytest
+```
+
 ## Notes
 
+- **Dates.** Every date-like column is rewritten to `YYYY-MM-DD` text on upload,
+  and `querybot/sql.py` rewrites the model's date SQL before it runs. This
+  matters because `strftime()` returns TEXT and SQLite will not compare TEXT to
+  a number, so `WHERE strftime('%Y', d) = 2025` matches nothing and fails
+  silently. The repair layer casts those comparisons and translates MySQL's
+  `YEAR()` / `MONTH()` / `DATE_FORMAT()` into `strftime()`.
 - `.env` is gitignored. Never commit a real key.
 - Only `SELECT` statements are executed; anything else is shown to you as a
   warning instead of run.

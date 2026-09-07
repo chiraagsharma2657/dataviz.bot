@@ -8,6 +8,7 @@ from querybot.charts import draw_chart
 from querybot.data import normalize_dates, run_query, to_table_name
 from querybot.llm import build_model, parse_chart_reply, reply_text, strip_fences
 from querybot.prompts import chart_prompt, sql_prompt
+from querybot.sql import repair_sql
 
 load_dotenv()
 
@@ -71,9 +72,13 @@ if question and st.session_state.get("answered_question") != question:
             sql_prompt(database, table, df, date_cols, question)
         )
 
-    query = strip_fences(reply_text(response))
+    raw_query = strip_fences(reply_text(response))
+    # The model writes MySQL; this makes it run correctly on SQLite dates.
+    query = repair_sql(raw_query)
+
     st.session_state["answered_question"] = question
     st.session_state["query"] = query
+    st.session_state["repaired"] = query != raw_query
     st.session_state["result"] = None
     st.session_state["error"] = None
     st.session_state["chart_spec"] = None
@@ -91,6 +96,8 @@ result = st.session_state.get("result")
 if query:
     st.subheader("Query")
     st.code(query, language="sql")
+    if st.session_state.get("repaired"):
+        st.caption("Adjusted the generated SQL so its date handling works on this engine.")
 
     if not query.lower().startswith("select"):
         st.warning(query)
@@ -101,6 +108,15 @@ if result is not None:
     st.subheader("Result")
     st.dataframe(result)
     st.caption(f"{len(result)} row(s)")
+
+    # An empty result is easy to mistake for a broken app, so say what it means.
+    if result.empty:
+        st.warning(
+            "The query ran but matched no rows. Check that the values you asked "
+            "for exist in the data"
+            + (f" - date columns cover {df[date_cols[0]].min()} to "
+               f"{df[date_cols[0]].max()}." if date_cols else ".")
+        )
 
     # ------------------------------------------------------- 4. Optional chart
     st.divider()

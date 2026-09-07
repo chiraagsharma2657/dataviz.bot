@@ -30,6 +30,14 @@ SELECT CAST(strftime('%Y', {quote(example_date)}) AS INTEGER) AS year,
 FROM {table}
 GROUP BY year
 ORDER BY year;
+
+Example 3 (filtering to one year - note the CAST, without it you get 0 rows):
+Question: All records from 2025
+
+Answer:
+SELECT *
+FROM {table}
+WHERE CAST(strftime('%Y', {quote(example_date)}) AS INTEGER) = 2025;
 """
 
     return f"""
@@ -65,8 +73,13 @@ Rules:
 7. DATES: every date column listed above is TEXT in YYYY-MM-DD form. The engine
    does not support YEAR(), MONTH(), DAY() or DATE_FORMAT() - always use
    strftime('%Y', col) for the year, '%m' month, '%d' day, '%Y-%m' year-month.
-   strftime() returns text, so CAST(... AS INTEGER) when you need a number, and
-   order by the alias. Compare dates as plain strings: col >= '2024-01-01'.
+   strftime() returns TEXT, and TEXT never equals a bare number, so
+   `strftime('%Y', col) = 2025` silently matches NOTHING. Every time you compare
+   strftime() to a number you MUST cast it:
+       WHERE CAST(strftime('%Y', col) AS INTEGER) = 2025
+   Cast the same way when you SELECT a year or month as a number, and order by
+   the alias. To filter a whole year, a plain string range is simplest and
+   fastest: WHERE col >= '2025-01-01' AND col <= '2025-12-31'.
 8. Use LIMIT whenever the user asks for top/bottom records.
 9. Give every aggregated or computed column a simple snake_case alias
    (no spaces, no backticks), so the result table is easy to read and plot.
