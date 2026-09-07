@@ -34,6 +34,47 @@ _FORMAT_MAP = {
 
 _COMPARISON = re.compile(r"\s*(=|==|!=|<>|>=|<=|>|<)\s*(-?\d+)\b")
 
+# Statements that write or change things. A query containing any of these as a
+# keyword is never run, whatever it starts with.
+_WRITE_KEYWORDS = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE|ATTACH|"
+    r"DETACH|PRAGMA|VACUUM|REINDEX)\b",
+    re.IGNORECASE,
+)
+
+
+def _strip_comments(sql):
+    sql = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
+    sql = re.sub(r"--[^\n]*", " ", sql)
+    return sql.strip()
+
+
+def is_select(sql):
+    """True when the query only reads.
+
+    A read query does not always start with SELECT: a common table expression
+    (`WITH ranked AS (...) SELECT ...`) is how the model answers "the top X per
+    group" questions, and it is perfectly read-only. Checking only for a leading
+    SELECT rejected those, so they were shown to the user as if the model had
+    refused the question.
+    """
+    if not sql:
+        return False
+
+    body = _strip_comments(sql)
+    if not body:
+        return False
+
+    first = re.match(r"[A-Za-z]+", body)
+    if not first or first.group(0).upper() not in ("SELECT", "WITH"):
+        return False
+
+    # A CTE can still hide a write (`WITH x AS (...) DELETE ...`), and a
+    # trailing statement could too, so scan the whole thing. Keywords inside
+    # string literals and quoted identifiers do not count.
+    without_literals = re.sub(r"'[^']*'|\"[^\"]*\"|`[^`]*`", " ", body)
+    return not _WRITE_KEYWORDS.search(without_literals)
+
 
 def _split_args(text):
     """Split a call's argument list on top-level commas."""

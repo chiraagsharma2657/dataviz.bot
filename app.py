@@ -9,7 +9,7 @@ from dataviz.charts import draw_chart
 from dataviz.data import normalize_dates, run_query, to_table_name
 from dataviz.llm import build_model, parse_chart_reply, reply_text, strip_fences
 from dataviz.prompts import chart_prompt, sql_prompt
-from dataviz.sql import repair_sql
+from dataviz.sql import is_select, repair_sql
 
 load_dotenv()
 
@@ -114,7 +114,7 @@ if question and st.session_state.get("answered_question") != question:
     st.session_state["error"] = None
     st.session_state["chart_spec"] = None
 
-    if query.lower().startswith("select"):
+    if is_select(query):
         try:
             st.session_state["result"] = run_query(df, table, query)
         except Exception as e:
@@ -130,7 +130,7 @@ if query:
     if st.session_state.get("repaired"):
         st.caption("Adjusted the generated SQL so its date handling works on this engine.")
 
-    if not query.lower().startswith("select"):
+    if not is_select(query):
         st.warning(query)
     elif st.session_state.get("error"):
         st.error(st.session_state["error"])

@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from dataviz.data import normalize_dates, run_query
-from dataviz.sql import repair_sql
+from dataviz.sql import is_select, repair_sql
 
 ROWS = {
     "Order ID": [1, 2, 3, 4],
@@ -77,6 +77,50 @@ def test_correct_queries_are_untouched(query):
 def test_repair_leaves_string_literals_alone():
     query = "SELECT * FROM t WHERE note = 'YEAR(x) = 2025'"
     assert repair_sql(query) == query
+
+
+@pytest.mark.parametrize("query", [
+    "SELECT * FROM t",
+    "WITH ranked AS (SELECT 1 AS a) SELECT * FROM ranked",   # the CTE case
+    "  \n-- a comment\nSELECT 1",
+    "/* block */ WITH x AS (SELECT 1) SELECT * FROM x",
+    "SELECT * FROM t WHERE note = 'DROP TABLE x'",           # keyword in a string
+])
+def test_read_only_queries_are_allowed(query):
+    assert is_select(query)
+
+
+@pytest.mark.parametrize("query", [
+    "",
+    "Invalid column name.",
+    "Please ask only SQL-related questions.",
+    "DROP TABLE t",
+    "UPDATE t SET a = 1",
+    "WITH a AS (SELECT 1) DELETE FROM t",   # a write hiding behind a CTE
+    "SELECT 1; DROP TABLE t",               # a write appended to a read
+])
+def test_writes_and_refusals_are_rejected(query):
+    assert not is_select(query)
+
+
+def test_cte_with_window_function_runs():
+    """The "top item per group" shape the model reaches for - a CTE, which the
+    old leading-SELECT check rejected as if the model had refused."""
+    df = pd.DataFrame({
+        "country": ["IN", "IN", "US", "US"],
+        "product": ["A", "B", "A", "B"],
+        "qty": [5, 9, 7, 2],
+    })
+    query = (
+        "WITH ranked AS (SELECT country, product, SUM(qty) AS total, "
+        "ROW_NUMBER() OVER (PARTITION BY country ORDER BY SUM(qty) DESC) AS rnk "
+        "FROM t GROUP BY country, product) "
+        "SELECT country, product, total FROM ranked WHERE rnk = 1"
+    )
+    assert is_select(query)
+    out = run_query(df, "t", repair_sql(query))
+    assert out["product"].tolist() == ["B", "A"]
+    assert out["total"].tolist() == [9, 7]
 
 
 def test_grouping_by_year_still_works():

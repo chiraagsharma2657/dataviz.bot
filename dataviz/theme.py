@@ -215,12 +215,30 @@ p, label, span, div {{ color: var(--ink-soft); }}
 }}
 code {{ font-size: 0.86rem !important; }}
 
-/* ---- alerts, tuned to the palette ---- */
-[data-testid="stNotification"], .stAlert {{
+/* ---- alerts: keep the semantic colour as an edge, not a wash ---- */
+[data-testid="stNotification"],
+[data-testid="stAlert"],
+[data-testid="stAlertContainer"],
+.stAlert, .stAlert > div {{
   background: var(--plum-raised) !important;
-  border: 1px solid var(--border) !important;
   border-radius: 14px !important;
   color: var(--ink-soft) !important;
+}}
+[data-testid="stAlert"], [data-testid="stAlertContainer"], .stAlert {{
+  border: 1px solid var(--border) !important;
+  border-left: 4px solid var(--violet) !important;
+}}
+[data-testid="stAlert"] p, [data-testid="stAlertContainer"] p, .stAlert p {{
+  color: var(--ink-soft) !important;
+}}
+/* warning and error keep their own edge colour */
+[data-testid="stAlert"]:has(svg[title="warning"]),
+.stAlert:has([data-testid="stAlertContentWarning"]) {{
+  border-left-color: #E3B341 !important;
+}}
+[data-testid="stAlert"]:has(svg[title="error"]),
+.stAlert:has([data-testid="stAlertContentError"]) {{
+  border-left-color: #EF5A5A !important;
 }}
 
 /* ---- checkbox accent ---- */
