@@ -273,6 +273,35 @@ code {{ font-size: 0.86rem !important; }}
 }}
 .dv-stat span {{ font-size: 0.78rem; color: {INK_MUTED}; text-transform: uppercase; letter-spacing: 0.6px; }}
 
+/* ---- landing page ---- */
+.dv-features {{
+  display: grid; gap: 0.9rem; margin: 0.4rem 0 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}}
+.dv-feature {{
+  background: var(--plum-raised);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+}}
+.dv-feature b {{
+  display: block;
+  font-family: 'Fredoka', system-ui, sans-serif;
+  font-size: 1.05rem; color: var(--ink); margin-bottom: 0.3rem;
+}}
+.dv-feature span {{ font-size: 0.9rem; color: {INK_SOFT}; line-height: 1.5; }}
+
+.dv-gate {{
+  max-width: 620px; margin: 0 auto;
+}}
+.dv-privacy {{
+  font-size: 0.82rem; color: {INK_MUTED}; line-height: 1.6;
+  margin-top: 1rem; padding: 0.85rem 1rem;
+  border-left: 3px solid var(--lime);
+  background: rgba(163,230,53,0.06);
+  border-radius: 0 10px 10px 0;
+}}
+
 /* ---- footer ---- */
 .dv-foot {{ text-align: center; color: {INK_MUTED}; font-size: 0.82rem; margin: 2.5rem 0 1rem; }}
 

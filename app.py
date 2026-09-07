@@ -1,11 +1,14 @@
 ﻿"""DataViz: upload a CSV, ask a question in plain English, get a table and a chart."""
 
+import os
+
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
 from dataviz import theme
 from dataviz.charts import draw_chart
+from dataviz.landing import forget_key_button, require_api_key
 from dataviz.data import normalize_dates, run_query, to_table_name
 from dataviz.llm import (
     ModelError, QuotaExceeded, ask, build_model, parse_chart_reply, strip_fences,
@@ -23,14 +26,19 @@ st.set_page_config(
 st.markdown(theme.CSS, unsafe_allow_html=True)
 
 
-@st.cache_resource
-def get_model():
-    return build_model()
+@st.cache_resource(show_spinner=False)
+def get_model(api_key):
+    return build_model(api_key=api_key)
 
 
 def step(label):
     st.markdown(f'<div class="dv-step">{label}</div>', unsafe_allow_html=True)
 
+
+# Landing page first: without a key there is nothing the app can do. When
+# GOOGLE_API_KEY is set (local development, or a single-owner deployment) the
+# gate is skipped and that key is used instead.
+api_key = os.getenv("GOOGLE_API_KEY") or require_api_key()
 
 # ------------------------------------------------------------- masthead
 logo = theme.logo_data_uri()
@@ -47,7 +55,7 @@ else:
 st.markdown('<hr class="dv-rule">', unsafe_allow_html=True)
 
 try:
-    model = get_model()
+    model = get_model(api_key)
 except RuntimeError as e:
     st.error(str(e))
     st.stop()
@@ -193,6 +201,8 @@ if result is not None:
                 except Exception as e:
                     st.error(f"Could not draw the chart: {e}")
 
+if st.session_state.get("api_key"):
+    forget_key_button()
 st.markdown('<div class="dv-foot">DataViz — powered by Gemini</div>',
             unsafe_allow_html=True)
 

@@ -75,17 +75,37 @@ def ask(model, prompt):
     return reply_text(response)
 
 
-def build_model(model_name=None):
-    """Create the chat model, reading the model name from the environment.
+def build_model(api_key=None, model_name=None):
+    """Create the chat model for one caller's API key.
 
-    Raises a clear error when GOOGLE_API_KEY is missing, rather than letting
-    the first request fail deep inside the client.
+    The key is passed in rather than read from the environment, because when
+    the app is hosted each visitor brings their own and they must never share
+    one. It falls back to the environment so local runs and a single-owner
+    deployment keep working unchanged.
     """
-    if not os.getenv("GOOGLE_API_KEY"):
+    key = api_key or os.getenv("GOOGLE_API_KEY")
+    if not key:
         raise RuntimeError(
-            "GOOGLE_API_KEY is not set. Copy .env.example to .env and add your key."
+            "No API key. Copy .env.example to .env and add your key."
         )
-    return ChatGoogleGenerativeAI(model=model_name or os.getenv("MODEL_NAME", DEFAULT_MODEL))
+    return ChatGoogleGenerativeAI(
+        model=model_name or os.getenv("MODEL_NAME", DEFAULT_MODEL),
+        google_api_key=key,
+    )
+
+
+def verify_key(api_key):
+    """Check a key with one tiny request, so a typo is caught at the door.
+
+    Returns None when the key works, otherwise a message to show the user.
+    """
+    try:
+        ask(build_model(api_key=api_key), "Reply with: ok")
+    except ModelError as e:
+        return str(e)
+    except Exception as e:                       # malformed key, no network
+        return f"Could not verify that key: {e}"
+    return None
 
 
 def reply_text(response):

@@ -62,12 +62,29 @@ dataviz/
   prompts.py         The SQL prompt and the chart-planning prompt
   sql.py             Repairs the model's MySQL so it runs on SQLite dates
   theme.py           Brand palette, page CSS, Plotly template
+  landing.py         Landing page and the per-visitor API key gate
 assets/logo.png      The wizard
 tests/               pytest suite, focused on date handling
 .streamlit/          Streamlit theme config
 requirements.txt
 .env.example         Copy to .env and add your key
 ```
+
+## Hosting it for other people
+
+The app has two modes, chosen by whether `GOOGLE_API_KEY` is set on the server:
+
+| `GOOGLE_API_KEY` | Behaviour | Who pays |
+|---|---|---|
+| set | The landing page is skipped and that key is used | You — every visitor spends your quota |
+| not set | Visitors land on a page asking for their own key | Each visitor, from their own free key |
+
+For a public link, **leave it unset**. Each visitor's key lives in their own
+Streamlit session, in memory, for that browser session only.
+
+A key is deliberately never written to `.env` or any other file. A hosted app is
+one process shared by every visitor, so a key written to disk is a key handed to
+whoever arrives next — and it would survive on the server after they leave.
 
 ## Tests
 
