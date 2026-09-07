@@ -8,6 +8,73 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 DEFAULT_MODEL = "gemini-3.6-flash"
 
 
+class ModelError(RuntimeError):
+    """A model call failed for a reason worth explaining to the user."""
+
+
+class QuotaExceeded(ModelError):
+    """The API key is out of requests for now."""
+
+
+def _status_code(exc):
+    """The HTTP status of a failed call, wherever the SDK hung it."""
+    for candidate in (exc, getattr(exc, "__cause__", None)):
+        if candidate is None:
+            continue
+        for attr in ("code", "status_code"):
+            value = getattr(candidate, attr, None)
+            if isinstance(value, int):
+                return value
+    return None
+
+
+def _looks_like_quota(exc):
+    """Quota errors arrive as 429 / RESOURCE_EXHAUSTED.
+
+    LangChain sometimes re-raises the SDK error wrapped in something else, so
+    the text is checked as well as the status code.
+    """
+    if _status_code(exc) == 429:
+        return True
+    text = f"{getattr(exc, 'status', '')} {exc}".lower()
+    return any(marker in text for marker in (
+        "resource_exhausted", "quota", "rate limit", "ratelimit",
+        "too many requests",
+    ))
+
+
+def _looks_like_bad_key(exc):
+    if _status_code(exc) in (401, 403):
+        return True
+    text = f"{exc}".lower()
+    return "api_key_invalid" in text or "api key not valid" in text
+
+
+def ask(model, prompt):
+    """Send one prompt and return the reply text, or raise a ModelError.
+
+    Without this, a spent API key surfaced as a raw traceback in the middle of
+    the page - accurate, but it tells the user nothing they can act on.
+    """
+    try:
+        response = model.invoke(prompt)
+    except Exception as exc:
+        if _looks_like_quota(exc):
+            raise QuotaExceeded(
+                "DataViz has used up its API requests for now. "
+                "The Gemini free tier refills after a short wait - try again in "
+                "a minute, or put a different key in your .env file."
+            ) from exc
+        if _looks_like_bad_key(exc):
+            raise ModelError(
+                "Gemini rejected the API key. Check GOOGLE_API_KEY in your .env "
+                "file - a new key takes a moment to become active."
+            ) from exc
+        raise ModelError(f"Could not reach the model: {exc}") from exc
+
+    return reply_text(response)
+
+
 def build_model(model_name=None):
     """Create the chat model, reading the model name from the environment.
 

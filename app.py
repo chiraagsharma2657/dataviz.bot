@@ -7,7 +7,9 @@ from dotenv import load_dotenv
 from dataviz import theme
 from dataviz.charts import draw_chart
 from dataviz.data import normalize_dates, run_query, to_table_name
-from dataviz.llm import build_model, parse_chart_reply, reply_text, strip_fences
+from dataviz.llm import (
+    ModelError, QuotaExceeded, ask, build_model, parse_chart_reply, strip_fences,
+)
 from dataviz.prompts import chart_prompt, sql_prompt
 from dataviz.sql import is_select, repair_sql
 
@@ -98,12 +100,17 @@ question = st.text_input(
 if question and st.session_state.get("answered_question") != question:
     table = to_table_name(file.name)
 
-    with st.spinner("Conjuring your query..."):
-        response = model.invoke(
-            sql_prompt(database, table, df, date_cols, question)
-        )
+    try:
+        with st.spinner("Conjuring your query..."):
+            reply = ask(model, sql_prompt(database, table, df, date_cols, question))
+    except QuotaExceeded as e:
+        st.warning(str(e), icon="⏳")
+        st.stop()
+    except ModelError as e:
+        st.error(str(e))
+        st.stop()
 
-    raw_query = strip_fences(reply_text(response))
+    raw_query = strip_fences(reply)
     # The model writes MySQL; this makes it run correctly on SQLite dates.
     query = repair_sql(raw_query)
 
@@ -159,13 +166,20 @@ if result is not None:
         )
 
         if st.button("Create chart", key="make_chart"):
-            with st.spinner("Designing your chart..."):
-                reply = model.invoke(chart_prompt(
-                    st.session_state.get("answered_question", ""),
-                    result,
-                    chart_request,
-                ))
-            st.session_state["chart_spec"] = parse_chart_reply(reply_text(reply))
+            try:
+                with st.spinner("Designing your chart..."):
+                    chart_reply = ask(model, chart_prompt(
+                        st.session_state.get("answered_question", ""),
+                        result,
+                        chart_request,
+                    ))
+                st.session_state["chart_spec"] = parse_chart_reply(chart_reply)
+            except QuotaExceeded as e:
+                # The table above is still good, so keep the page and just say
+                # the chart could not be planned.
+                st.warning(str(e), icon="⏳")
+            except ModelError as e:
+                st.error(str(e))
 
         spec = st.session_state.get("chart_spec")
         if spec is not None:
