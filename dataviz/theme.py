@@ -129,7 +129,13 @@ h1, h2, h3, h4 {{
   letter-spacing: 0.2px;
 }}
 h2 {{ font-size: 1.35rem !important; margin-bottom: 0.4rem !important; }}
-p, label, span, div {{ color: var(--ink-soft); }}
+/* Scoped to the app body, and never to buttons - a blanket span/div rule
+   repainted the button label in lavender on lime, which was unreadable. */
+.block-container p,
+.block-container label,
+.block-container > div > div span:not([class*="st-"]) {{
+  color: var(--ink-soft);
+}}
 
 /* ---- masthead ---- */
 .dv-hero {{ text-align: center; padding: 0.5rem 0 0.25rem; }}
@@ -192,19 +198,26 @@ p, label, span, div {{ color: var(--ink-soft); }}
 
 /* ---- buttons: lime, the logo's action colour ---- */
 .stButton > button {{
-  background: linear-gradient(135deg, var(--lime), #7CB518);
-  color: #14210A !important;
+  background: linear-gradient(135deg, var(--lime), #8FCE1E);
   font-family: 'Fredoka', system-ui, sans-serif;
   font-weight: 600;
   border: 0; border-radius: 12px;
-  padding: 0.55rem 1.4rem;
+  padding: 0.55rem 1.5rem;
   box-shadow: 0 6px 18px rgba(163,230,53,0.28);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+}}
+/* The label is its own element inside the button, so colour it explicitly -
+   contrast 11.4:1 against the lime fill. */
+.stButton > button,
+.stButton > button *,
+.stButton > button:hover *,
+.stButton > button:focus * {{
+  color: #10180B !important;
+  fill: #10180B !important;
 }}
 .stButton > button:hover {{
   transform: translateY(-1px);
   box-shadow: 0 10px 24px rgba(163,230,53,0.38);
-  color: #14210A !important;
 }}
 
 /* ---- SQL code block ---- */
