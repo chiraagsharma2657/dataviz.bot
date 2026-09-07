@@ -1,4 +1,4 @@
-"""Date handling: normalisation, and repairing the SQL the model writes.
+﻿"""Date handling: normalisation, and repairing the SQL the model writes.
 
 The bug these cover: strftime() returns TEXT, so a query like
 `WHERE strftime('%Y', d) = 2025` matched nothing and produced an empty
@@ -8,8 +8,8 @@ dataframe with no error to explain it.
 import pandas as pd
 import pytest
 
-from querybot.data import normalize_dates, run_query
-from querybot.sql import repair_sql
+from dataviz.data import normalize_dates, run_query
+from dataviz.sql import repair_sql
 
 ROWS = {
     "Order ID": [1, 2, 3, 4],
@@ -88,3 +88,4 @@ def test_grouping_by_year_still_works():
     out = run_query(df, "t", query)
     assert out["year"].tolist() == [2024, 2025]
     assert out["total"].tolist() == [300, 700]
+

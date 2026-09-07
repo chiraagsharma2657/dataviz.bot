@@ -1,18 +1,24 @@
-"""Streamlit entry point: upload a CSV, ask a question, get a table and a chart."""
+﻿"""DataViz: upload a CSV, ask a question in plain English, get a table and a chart."""
 
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
-from querybot.charts import draw_chart
-from querybot.data import normalize_dates, run_query, to_table_name
-from querybot.llm import build_model, parse_chart_reply, reply_text, strip_fences
-from querybot.prompts import chart_prompt, sql_prompt
-from querybot.sql import repair_sql
+from dataviz import theme
+from dataviz.charts import draw_chart
+from dataviz.data import normalize_dates, run_query, to_table_name
+from dataviz.llm import build_model, parse_chart_reply, reply_text, strip_fences
+from dataviz.prompts import chart_prompt, sql_prompt
+from dataviz.sql import repair_sql
 
 load_dotenv()
 
-st.set_page_config(page_title="QueryBot", page_icon="📊", layout="wide")
+st.set_page_config(
+    page_title="DataViz",
+    page_icon=str(theme.LOGO_PATH) if theme.LOGO_PATH.exists() else "*",
+    layout="wide",
+)
+st.markdown(theme.CSS, unsafe_allow_html=True)
 
 
 @st.cache_resource
@@ -20,16 +26,33 @@ def get_model():
     return build_model()
 
 
+def step(label):
+    st.markdown(f'<div class="dv-step">{label}</div>', unsafe_allow_html=True)
+
+
+# ------------------------------------------------------------- masthead
+logo = theme.logo_data_uri()
+if logo:
+    st.markdown(
+        f'<div class="dv-hero"><img src="{logo}" alt="DataViz">'
+        '<p class="dv-tagline">Ask your data anything. No SQL required.</p></div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown('<div class="dv-hero"><h1>DataViz</h1>'
+                '<p class="dv-tagline">Ask your data anything. No SQL required.</p></div>',
+                unsafe_allow_html=True)
+st.markdown('<hr class="dv-rule">', unsafe_allow_html=True)
+
 try:
     model = get_model()
 except RuntimeError as e:
     st.error(str(e))
     st.stop()
 
-st.title("QueryBot: Ask Questions About Your Data")
-
 # ---------------------------------------------------------------- 1. Upload
-file = st.file_uploader("Upload a CSV file", type=["csv"])
+step("Upload your data")
+file = st.file_uploader("Drop a CSV file here", type=["csv"], label_visibility="collapsed")
 
 df = None
 date_cols = []
@@ -37,12 +60,17 @@ if file is not None:
     df = pd.read_csv(file)
     df, date_cols = normalize_dates(df)
 
-    st.subheader("Preview")
-    st.write("File name", file.name)
-    st.dataframe(df.sample(min(10, len(df))))
-    st.caption(f"{len(df)} row(s), {len(df.columns)} column(s)")
-    if date_cols:
-        st.caption("Date columns normalised to YYYY-MM-DD: " + ", ".join(date_cols))
+    st.markdown(
+        '<div class="dv-stats">'
+        f'<div class="dv-stat"><b>{len(df):,}</b><span>Rows</span></div>'
+        f'<div class="dv-stat"><b>{len(df.columns)}</b><span>Columns</span></div>'
+        f'<div class="dv-stat"><b>{len(date_cols)}</b><span>Date fields</span></div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.expander(f"Preview — {file.name}", expanded=True):
+        st.dataframe(df.head(8), use_container_width=True)
 
     database = st.text_input(
         "Database name",
@@ -53,13 +81,16 @@ if file is not None:
 # ------------------------------------------------------------------ 2. Ask
 if df is None:
     st.info("Upload a CSV file to start asking questions.")
+    st.markdown('<div class="dv-foot">DataViz — powered by Gemini</div>',
+                unsafe_allow_html=True)
     st.stop()
 
-st.subheader("Ask a question")
+step("Ask a question")
 question = st.text_input(
     "What do you want to see from this dataset?",
     placeholder="e.g. Top 10 cities by total sales",
     key="question",
+    label_visibility="collapsed",
 )
 
 # Only call the model when the question actually changed, so that toggling the
@@ -67,7 +98,7 @@ question = st.text_input(
 if question and st.session_state.get("answered_question") != question:
     table = to_table_name(file.name)
 
-    with st.spinner("Building your query..."):
+    with st.spinner("Conjuring your query..."):
         response = model.invoke(
             sql_prompt(database, table, df, date_cols, question)
         )
@@ -94,7 +125,7 @@ query = st.session_state.get("query")
 result = st.session_state.get("result")
 
 if query:
-    st.subheader("Query")
+    step("The query")
     st.code(query, language="sql")
     if st.session_state.get("repaired"):
         st.caption("Adjusted the generated SQL so its date handling works on this engine.")
@@ -105,9 +136,9 @@ if query:
         st.error(st.session_state["error"])
 
 if result is not None:
-    st.subheader("Result")
-    st.dataframe(result)
-    st.caption(f"{len(result)} row(s)")
+    step("The answer")
+    st.dataframe(result, use_container_width=True)
+    st.caption(f"{len(result):,} row(s)")
 
     # An empty result is easy to mistake for a broken app, so say what it means.
     if result.empty:
@@ -119,13 +150,11 @@ if result is not None:
         )
 
     # ------------------------------------------------------- 4. Optional chart
-    st.divider()
-    if result.empty:
-        st.info("Nothing to visualize: the query returned no rows.")
-    elif st.checkbox("Visualize this result", key="want_chart"):
+    if not result.empty and st.checkbox("Visualize this result", key="want_chart"):
+        step("The picture")
         chart_request = st.text_input(
             "How would you like it drawn? (optional)",
-            placeholder="e.g. bar chart of sales by city, or leave blank to let the bot decide",
+            placeholder="e.g. bar chart of sales by city, or leave blank to let DataViz decide",
             key="chart_request",
         )
 
@@ -146,6 +175,10 @@ if result is not None:
                 try:
                     fig = draw_chart(result, spec)
                     st.plotly_chart(fig, use_container_width=True)
-                    st.caption(f"{spec['type']} chart - hover over the chart to see exact values")
+                    st.caption(f"{spec['type']} chart - hover to see exact values")
                 except Exception as e:
                     st.error(f"Could not draw the chart: {e}")
+
+st.markdown('<div class="dv-foot">DataViz — powered by Gemini</div>',
+            unsafe_allow_html=True)
+

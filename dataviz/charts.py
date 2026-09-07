@@ -1,8 +1,15 @@
 """Turning a chart spec from the model into a Plotly figure."""
 
 import plotly.express as px
+import plotly.io as pio
+
+from . import theme
 
 CHART_TYPES = ["bar", "line", "scatter", "hist", "box", "heatmap", "pie"]
+
+# Register the brand template once and make it the default for every figure.
+pio.templates["dataviz"] = theme.plotly_template()
+pio.templates.default = "plotly_white+dataviz"
 
 
 def draw_chart(result, chart):
@@ -37,7 +44,7 @@ def draw_chart(result, chart):
             title=title,
             text_auto=".2f",
             aspect="auto",
-            color_continuous_scale="Viridis",
+            color_continuous_scale=theme.SEQUENTIAL,
             labels={"x": x, "y": y, "color": hue},
         )
     elif kind == "pie":
@@ -47,6 +54,19 @@ def draw_chart(result, chart):
             textinfo="percent+label",
             hovertemplate="<b>%{label}</b><br>%{value} (%{percent})<extra></extra>",
         )
+
+    # Mark specs: rounded data-ends on bars, thin lines, generous hit targets,
+    # and a 2px surface-coloured gap so adjacent fills never bleed together.
+    if kind == "bar":
+        fig.update_traces(marker_line_color=theme.PLUM, marker_line_width=2)
+        fig.update_layout(bargap=0.28, bargroupgap=0.08)
+    elif kind == "line":
+        fig.update_traces(line_width=2, marker_size=8)
+    elif kind == "scatter":
+        fig.update_traces(marker_size=9,
+                          marker_line_color=theme.PLUM, marker_line_width=1.5)
+    elif kind == "pie":
+        fig.update_traces(marker_line_color=theme.PLUM, marker_line_width=2)
 
     # Show the exact underlying value on hover for every point.
     if kind in ("bar", "line", "scatter"):

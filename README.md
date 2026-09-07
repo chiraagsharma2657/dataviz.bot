@@ -1,4 +1,8 @@
-# QueryBot
+<p align="center">
+  <img src="assets/logo.png" alt="DataViz" width="380">
+</p>
+
+<p align="center"><b>Ask your data anything. No SQL required.</b></p>
 
 Upload a CSV, ask a question in plain English, and get back the SQL, the result
 table, and an interactive chart.
@@ -50,14 +54,17 @@ Then open http://localhost:8501.
 
 ```
 app.py               Streamlit UI — upload, ask, show result, draw chart
-querybot/
+dataviz/
   data.py            CSV cleaning, table naming, running SQL on the dataframe
   charts.py          Chart spec -> Plotly figure (bar, line, scatter, hist,
                      box, heatmap, pie)
   llm.py             Model setup and parsing model replies
   prompts.py         The SQL prompt and the chart-planning prompt
   sql.py             Repairs the model's MySQL so it runs on SQLite dates
+  theme.py           Brand palette, page CSS, Plotly template
+assets/logo.png      The wizard
 tests/               pytest suite, focused on date handling
+.streamlit/          Streamlit theme config
 requirements.txt
 .env.example         Copy to .env and add your key
 ```
@@ -71,8 +78,15 @@ pytest
 
 ## Notes
 
+- **Chart colours** are not decorative. The eight-slot categorical palette in
+  `dataviz/theme.py` was checked with a contrast/colour-blindness validator: all
+  slots sit in the dark lightness band, clear 3:1 against the chart surface, and
+  keep adjacent pairs distinguishable under deutan/protan simulation. Green,
+  orange, red and yellow collapse into each other for colour-blind readers, so
+  the slot order deliberately never places two of them side by side. Reordering
+  the list without re-validating will break that.
 - **Dates.** Every date-like column is rewritten to `YYYY-MM-DD` text on upload,
-  and `querybot/sql.py` rewrites the model's date SQL before it runs. This
+  and `dataviz/sql.py` rewrites the model's date SQL before it runs. This
   matters because `strftime()` returns TEXT and SQLite will not compare TEXT to
   a number, so `WHERE strftime('%Y', d) = 2025` matches nothing and fails
   silently. The repair layer casts those comparisons and translates MySQL's
